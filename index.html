@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Listado de estudios - DEBBIOM</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- LOGIN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-container">
+            <div class="login-header">
+                <img id="loginLogo" alt="DEBBIOM" class="logo">
+                <h1>Listado de estudios</h1>
+                <div class="cloud-badge">☁️ Sincronización en la Nube</div>
+            </div>
+            <div class="login-error" id="loginError">Usuario o contraseña incorrectos</div>
+            <form class="login-form" onsubmit="App.handleLogin(event)">
+                <div class="form-group"><label>👤 Usuario</label><input type="text" id="loginUser" required autocomplete="username"></div>
+                <div class="form-group"><label>🔒 Contraseña</label><input type="password" id="loginPass" required autocomplete="current-password"></div>
+                <button type="submit" class="btn-login">Iniciar Sesión →</button>
+            </form>
+            <div class="online-users-login"><div class="count" id="loginOnlineCount">-</div><div class="label">usuarios en línea</div></div>
+        </div>
+    </div>
+
+    <!-- APP -->
+    <div class="app-container" id="appContainer">
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <img id="headerLogo" alt="DEBBIOM" class="header-logo">
+                    <div class="header-title"><h1>Listado de estudios</h1><p>Control de información</p></div>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-card"><div class="value" id="statTotal">0</div><div class="label">Registros</div></div>
+                    <div class="stat-card urgent" id="statPendingCard" style="display:none"><div class="value" id="statPending">0</div><div class="label">Pend.</div></div>
+                    <div class="stat-card destruct" id="statDestructCard" style="display:none"><div class="value" id="statDestruct">0</div><div class="label">Destru.</div></div>
+                </div>
+                <div class="cloud-status" id="cloudStatus" onclick="App.forceSync()" title="Sincronizar"><div class="dot"></div><span>Conectado</span></div>
+                <div class="online-panel"><span class="title">En línea:</span><div class="online-avatars" id="onlineAvatars"></div><span class="online-count" id="onlineCount">0</span></div>
+                <div class="header-user">
+                    <div class="user-profile"><div class="user-avatar" id="userAvatar">U</div><div class="user-details"><div class="name" id="userName">Usuario</div><div class="role" id="userRole">Rol</div></div></div>
+                    <button class="btn-logout" onclick="App.handleLogout()">🚪</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- DOCUMENT HEADER - Sin V001 y con código/versión editables desde config.js -->
+        <div class="document-header">
+            <div class="document-header-row">
+                <div class="doc-logo-cell"><img id="docLogo" alt="DEBBIOM"></div>
+                <div class="doc-title-cell"><h2 id="docTitulo">Listado del control de información en resguardo</h2></div>
+                <div class="doc-code-cell">
+                    <div class="doc-code" id="docCodigo">L1/AC-P21</div>
+                    <div class="doc-version" id="docVersion">Versión 002/Ene-25</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sync-bar">
+            <div class="sync-info"><span>🔄 Última sync: <strong id="lastSyncText">-</strong></span><span>👥 <strong id="syncOnlineCount">0</strong> activos</span></div>
+            <div class="sync-actions"><button onclick="App.forceSync()">🔄 Sincronizar</button><button onclick="App.exportBackup()">💾 Respaldo</button></div>
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs-wrapper"><div class="tabs">
+            <button class="tab active" onclick="App.switchTab('registros')">📋 Registros <span class="badge" id="badgeActive">0</span></button>
+            <button class="tab" onclick="App.switchTab('solicitudes')">📧 Solicitudes <span class="badge urgent" id="badgePending">0</span></button>
+            <button class="tab" onclick="App.switchTab('destruccion')">🔥 Destrucción <span class="badge destruct" id="badgeDestruct">0</span></button>
+            <button class="tab" onclick="App.switchTab('archivados')">📦 Archivados <span class="badge" id="badgeArchived">0</span></button>
+            <button class="tab" onclick="App.switchTab('papelera')">🗑️ Papelera <span class="badge" id="badgeTrash">0</span></button>
+            <button class="tab" onclick="App.switchTab('logs')">📜 Historial <span class="badge" id="badgeLogs">0</span></button>
+        </div></div>
+
+        <!-- TAB REGISTROS -->
+        <div class="tab-content active" id="tabRegistros">
+            <div class="main-content">
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="App.openModal()">➕ Nuevo</button>
+                    <button class="btn btn-purple" onclick="App.archiveSelected()" id="btnArchive" disabled>📦</button>
+                    <div class="search-box"><span class="icon">🔍</span><input type="text" id="globalSearch" placeholder="Buscar..." oninput="App.applyFilters()"></div>
+                    <div class="action-right"><button class="btn btn-secondary" onclick="App.exportToExcel()">📊 Excel</button></div>
+                </div>
+                <div class="table-card">
+                    <div class="table-wrapper" id="mainTableWrapper">
+                        <table>
+                            <thead><tr>
+                                <th class="cell-checkbox"><input type="checkbox" id="selectAll" onchange="App.toggleSelectAll()"></th>
+                                <th><div class="th-content"><span>N° Caja</span><input type="text" class="filter-input" data-filter="id" oninput="App.applyFilters()"></div></th>
+                                <th><div class="th-content"><span>Nombre Proyecto</span><input type="text" class="filter-input" data-filter="nombreProyecto" oninput="App.applyFilters()"></div></th>
+                                <th><div class="th-content"><span>Código Proyecto</span><input type="text" class="filter-input" data-filter="codigoProyecto" oninput="App.applyFilters()"></div></th>
+                                <th>Cód. Val.</th>
+                                <th><div class="th-content"><span>Patrocinador</span><input type="text" class="filter-input" data-filter="patrocinador" oninput="App.applyFilters()"></div></th>
+                                <th>Equipo</th>
+                                <th>Anal.</th><th>Calid.</th><th>Clín.</th><th>Estad.</th>
+                                <th>📝 Estatus</th>
+                                <th>📅 Informe</th><th>📅 Destruc.</th><th>📅 Sol.TI</th>
+                                <th>🔥 5 Años</th>
+                                <th>💬 Observaciones</th>
+                                <th class="th-ti">🖥️ Obs. TI</th>
+                                <th>ID:</th><th>Ubicación</th><th>Resguardo</th>
+                                <th>Acciones</th>
+                            </tr></thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination">
+                        <button onclick="App.changePage(-1)" id="prevBtn">←</button>
+                        <span id="pageInfo">1</span>
+                        <select id="perPageSelect" onchange="App.changePerPage()"><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="9999" selected>Todo</option></select>
+                        <button onclick="App.changePage(1)" id="nextBtn">→</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB SOLICITUDES -->
+        <div class="tab-content" id="tabSolicitudes"><div class="main-content"><div class="action-bar"><h3 style="font-size:0.7rem">📧 Solicitudes Pendientes</h3></div><div class="solicitudes-grid" id="solicitudesGrid"></div><div class="table-card" style="margin-top:0.5rem"><div style="padding:0.35rem;background:var(--bg-hover);font-weight:600;font-size:0.6rem">📜 Historial</div><div class="table-wrapper" style="max-height:180px"><table><thead><tr><th>Fecha</th><th>Caja</th><th>Proyecto</th><th>Destinatario</th><th>Estado</th><th>Acc.</th></tr></thead><tbody id="solicitudesHistoryBody"></tbody></table></div></div></div></div>
+
+        <!-- TAB DESTRUCCIÓN -->
+        <div class="tab-content" id="tabDestruccion"><div class="main-content"><div class="action-bar"><h3 style="font-size:0.7rem">🔥 Recordatorios de Destrucción (5 años)</h3></div><div class="destruct-grid" id="destructGrid"></div><div class="table-card" style="margin-top:0.5rem"><div style="padding:0.35rem;background:var(--bg-hover);font-weight:600;font-size:0.6rem">📋 Próximas</div><div class="table-wrapper" style="max-height:220px"><table><thead><tr><th>Caja</th><th>Proyecto</th><th>Informe</th><th>5 años</th><th>Días</th><th>Estado</th></tr></thead><tbody id="destructTableBody"></tbody></table></div></div></div></div>
+
+        <!-- TAB ARCHIVADOS -->
+        <div class="tab-content" id="tabArchivados"><div class="main-content"><div class="action-bar"><button class="btn btn-success" onclick="App.restoreSelected()" id="btnRestore" disabled>♻️</button><div class="search-box"><span class="icon">🔍</span><input type="text" id="archiveSearch" placeholder="Buscar..." oninput="App.filterArchived()"></div></div><div class="table-card"><div class="table-wrapper"><table><thead><tr><th class="cell-checkbox"><input type="checkbox" id="selectAllArchived" onchange="App.toggleSelectAllArchived()"></th><th>Caja</th><th>Nombre</th><th>Código</th><th>Por</th><th>Fecha</th><th>Acc.</th></tr></thead><tbody id="archivedBody"></tbody></table></div></div></div></div>
+
+        <!-- TAB PAPELERA -->
+        <div class="tab-content" id="tabPapelera"><div class="main-content"><div class="action-bar"><button class="btn btn-success" onclick="App.restoreFromTrash()" id="btnRestoreTrash" disabled>♻️</button><button class="btn btn-danger" onclick="App.emptyTrash()">🗑️ Vaciar</button><div class="search-box"><span class="icon">🔍</span><input type="text" id="trashSearch" placeholder="Buscar..." oninput="App.filterTrash()"></div></div><div class="table-card"><div class="table-wrapper"><table><thead><tr><th class="cell-checkbox"><input type="checkbox" id="selectAllTrash" onchange="App.toggleSelectAllTrash()"></th><th>Caja</th><th>Nombre</th><th>Código</th><th>Por</th><th>Fecha</th><th>Acc.</th></tr></thead><tbody id="trashBody"></tbody></table></div></div></div></div>
+
+        <!-- TAB LOGS -->
+        <div class="tab-content" id="tabLogs"><div class="main-content"><div class="log-header"><div class="log-stat-card"><div class="icon">👥</div><div class="number" id="logSessions">0</div><div class="text">Sesiones</div></div><div class="log-stat-card"><div class="icon">📧</div><div class="number" id="logEmails">0</div><div class="text">Correos</div></div><div class="log-stat-card"><div class="icon">✅</div><div class="number" id="logCompleted">0</div><div class="text">Entregas</div></div><div class="log-stat-card"><div class="icon">✏️</div><div class="number" id="logEdits">0</div><div class="text">Ediciones</div></div><div class="log-stat-card"><div class="icon">🖥️</div><div class="number" id="logTI">0</div><div class="text">TI</div></div></div><div class="action-bar"><select id="logFilterType" onchange="renderLogs()" class="btn btn-secondary" style="padding:0.25rem;font-size:0.52rem"><option value="">Todas</option><option value="LOGIN">Sesiones</option><option value="UPDATE">Ediciones</option><option value="TI_UPDATE">Obs. TI</option><option value="EMAIL">Correos</option><option value="SYNC">Sync</option></select><div class="search-box"><span class="icon">🔍</span><input type="text" id="logSearch" placeholder="Buscar..." oninput="renderLogs()"></div><div class="action-right"><button class="btn btn-secondary" onclick="App.exportLogs()">📤</button></div></div><div class="table-card"><div class="table-wrapper" style="max-height:calc(100vh - 240px)"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Reg.</th><th>Detalles</th></tr></thead><tbody id="logsBody"></tbody></table></div></div></div></div>
+    </div>
+
+    <!-- MODALES -->
+    <!-- Modal Principal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header"><h2 id="modalTitle">📝 Nuevo</h2><button class="modal-close" onclick="App.closeModal()">×</button></div>
+            <div class="modal-body">
+                <form id="recordForm" onsubmit="App.saveRecord(event)">
+                    <div class="form-section"><div class="form-section-title">📋 Información Principal</div><div class="form-grid"><div class="form-group"><label>N° Caja</label><input type="text" id="fId" readonly></div><div class="form-group"><label>Nombre del Proyecto <span class="required">*</span></label><input type="text" id="fNombre" required></div><div class="form-group"><label>Código del Proyecto <span class="required">*</span></label><input type="text" id="fCodProy" required></div><div class="form-group"><label>Código Validación</label><input type="text" id="fCodVal"></div></div></div>
+                    <div class="form-section"><div class="form-section-title">🏢 Patrocinador</div><div class="form-grid"><div class="form-group"><label>Patrocinador <span class="required">*</span></label><input type="text" id="fPatrocinador" required></div><div class="form-group"><label>Equipo</label><input type="text" id="fEquipo"></div><div class="form-group full-width"><div class="checkbox-card"><input type="checkbox" id="fRojo"><label for="fRojo">🔴 Marcar ROJO</label></div></div></div></div>
+                    <div class="form-section"><div class="form-section-title">📊 Áreas</div><div class="areas-grid"><div class="area-card"><label>📈 Analítica</label><select id="aAnalitica" onchange="App.toggleInc('analitica')"><option value="">-</option><option value="Completa">✅</option><option value="Incompleta">❌</option><option value="X">X</option></select><div class="incompleta-details" id="incAnalitica"><textarea id="faltaAnalitica" placeholder="¿Qué falta?"></textarea></div></div><div class="area-card"><label>✔️ Calidad</label><select id="aCalidad" onchange="App.toggleInc('calidad')"><option value="">-</option><option value="Completa">✅</option><option value="Incompleta">❌</option><option value="X">X</option></select><div class="incompleta-details" id="incCalidad"><textarea id="faltaCalidad" placeholder="¿Qué falta?"></textarea></div></div><div class="area-card"><label>🏥 Clínica</label><select id="aClinica" onchange="App.toggleInc('clinica')"><option value="">-</option><option value="Completa">✅</option><option value="Incompleta">❌</option><option value="X">X</option></select><div class="incompleta-details" id="incClinica"><textarea id="faltaClinica" placeholder="¿Qué falta?"></textarea></div></div><div class="area-card"><label>📉 Estadístico</label><select id="aEstadistico" onchange="App.toggleInc('estadistico')"><option value="">-</option><option value="Completa">✅</option><option value="Incompleta">❌</option><option value="X">X</option></select><div class="incompleta-details" id="incEstadistico"><textarea id="faltaEstadistico" placeholder="¿Qué falta?"></textarea></div></div></div></div>
+                    <div class="form-section section-estatus"><div class="form-section-title">📝 Estatus</div><div class="form-group full-width"><textarea id="fEstatus" placeholder="Estatus..."></textarea></div><div class="form-grid" style="margin-top:0.35rem"><div class="form-group"><label>URL</label><input type="url" id="fUrlEstatus" placeholder="https://..."></div><div class="form-group"><label>Archivos</label><input type="file" id="fileEstatus" multiple onchange="App.previewFiles('estatus')"><div class="file-preview" id="prevEstatus"></div></div></div></div>
+                    <div class="form-section"><div class="form-section-title">📅 Fechas</div><div class="dates-grid"><div class="date-card"><label>Informe</label><input type="date" id="fInforme"></div><div class="date-card"><label>Destrucción</label><input type="date" id="fDestruccion"></div><div class="date-card"><label>Solicitud TI</label><input type="date" id="fSolicitudTI"></div></div></div>
+                    <div class="form-section"><div class="form-section-title">📍 Ubicación</div><div class="form-grid"><div class="form-group"><label>ID:</label><input type="text" id="fIdSec"></div><div class="form-group"><label>Ubicación <span class="required">*</span></label><select id="fUbicacion" required><option value="">-</option><option>DEBBIOM</option><option>Archivo</option></select></div><div class="form-group"><label>Resguardo <span class="required">*</span></label><select id="fResguardo" required><option value="">-</option><option>HDD</option><option>HDD y Caja</option><option>HDD y Mueble</option><option>Mueble</option></select></div></div></div>
+                    <div class="form-section section-obs"><div class="form-section-title">💬 Observaciones</div><div class="form-group full-width"><textarea id="fObservaciones" placeholder="Observaciones..." style="min-height:60px"></textarea></div></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="App.closeModal()">Cancelar</button><button type="submit" form="recordForm" class="btn btn-primary">💾 Guardar</button></div>
+        </div>
+    </div>
+
+    <!-- Modal TI -->
+    <div class="modal-overlay" id="tiModalOverlay">
+        <div class="modal" style="max-width:550px">
+            <div class="modal-header ti"><h2>🖥️ Observaciones TI</h2><button class="modal-close" onclick="App.closeTIModal()">×</button></div>
+            <div class="modal-body">
+                <div class="ti-notice">⚠️ Solo Admin TI puede editar este campo</div>
+                <div class="form-section section-ti">
+                    <div class="form-section-title ti-title">📋 Registro</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Caja</label><input type="text" id="tiCaja" readonly></div>
+                        <div class="form-group"><label>Proyecto</label><input type="text" id="tiProyecto" readonly></div>
+                    </div>
+                </div>
+                <div class="form-section section-ti">
+                    <div class="form-section-title ti-title">🖥️ Observaciones TI</div>
+                    <div class="form-group full-width"><label>Observaciones</label><textarea id="tiObservaciones" placeholder="Observaciones de TI..." style="min-height:80px"></textarea></div>
+                    <div class="form-grid" style="margin-top:0.35rem">
+                        <div class="form-group"><label>URL</label><input type="url" id="tiUrl" placeholder="https://..."></div>
+                        <div class="form-group"><label>Archivos</label><input type="file" id="tiFiles" multiple onchange="App.previewTIFiles()"><div class="file-preview" id="prevTIFiles"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="App.closeTIModal()">Cancelar</button><button type="button" class="btn btn-ti" onclick="App.saveTIObservaciones()">💾 Guardar TI</button></div>
+        </div>
+    </div>
+
+    <!-- Modal Email -->
+    <div class="modal-overlay" id="emailModalOverlay">
+        <div class="modal"><div class="modal-header orange"><h2>📧 Enviar Solicitud</h2><button class="modal-close" onclick="App.closeEmailModal()">×</button></div><div class="modal-body"><div class="form-section"><div class="form-section-title">📋 Registro</div><div class="form-grid"><div class="form-group"><label>Caja</label><input type="text" id="emailCaja" readonly></div><div class="form-group"><label>Proyecto</label><input type="text" id="emailProyecto" readonly></div><div class="form-group"><label>Código</label><input type="text" id="emailCodigo" readonly></div><div class="form-group"><label>Patrocinador</label><input type="text" id="emailPatrocinador" readonly></div></div></div><div class="form-section"><div class="form-section-title">📧 Correo</div><div class="form-grid"><div class="form-group"><label>Destinatario <span class="required">*</span></label><input type="email" id="emailTo" required placeholder="correo@ejemplo.com"></div><div class="form-group"><label>Fecha Límite</label><input type="text" id="emailFechaLimite" readonly></div></div><div class="form-group full-width" style="margin-top:0.35rem"><label>Asunto</label><input type="text" id="emailSubject"></div><div class="form-group full-width" style="margin-top:0.35rem"><label>Mensaje</label><textarea id="emailBody" style="min-height:80px"></textarea></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="App.closeEmailModal()">Cancelar</button><button type="button" class="btn btn-orange" onclick="App.sendEmail()">📧 Enviar</button></div></div>
+    </div>
+
+    <!-- Modal Complete -->
+    <div class="modal-overlay" id="completeModalOverlay">
+        <div class="modal" style="max-width:520px"><div class="modal-header green"><h2>✅ Marcar Entregado</h2><button class="modal-close" onclick="App.closeCompleteModal()">×</button></div><div class="modal-body"><div class="update-notice">💡 Se agregará al Estatus</div><div class="form-section"><div class="form-section-title">📋 Solicitud</div><div class="form-grid"><div class="form-group"><label>Caja</label><input type="text" id="completeCaja" readonly></div><div class="form-group"><label>Proyecto</label><input type="text" id="completeProyecto" readonly></div></div></div><div class="form-section" style="border-left-color:var(--success)"><div class="form-section-title">📎 Respuesta</div><div class="form-group full-width"><label>Archivos</label><input type="file" id="completeFiles" multiple onchange="App.previewCompleteFiles()"><div class="file-preview" id="prevCompleteFiles"></div></div><div class="form-group full-width" style="margin-top:0.35rem"><label>URL</label><input type="url" id="completeUrl" placeholder="https://..."></div><div class="form-group full-width" style="margin-top:0.35rem"><label>Notas</label><textarea id="completeNotas" placeholder="Observaciones..."></textarea></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="App.closeCompleteModal()">Cancelar</button><button type="button" class="btn btn-success" onclick="App.confirmComplete()">✅ Entregado</button></div></div>
+    </div>
+
+    <!-- Modal Detail -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal" style="max-width:620px"><div class="modal-header"><h2 id="detailTitle">📋 Detalles</h2><button class="modal-close" onclick="App.closeDetail()">×</button></div><div class="modal-body" id="detailContent"></div><div class="modal-footer"><button class="btn btn-secondary" onclick="App.closeDetail()">Cerrar</button></div></div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="image-modal" id="imgModal" onclick="App.closeImg()"><img id="imgView"></div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toasts"></div>
+    
+    <!-- Sync Indicator -->
+    <div class="sync-indicator" id="syncIndicator"><div class="spinner"></div><span>Sincronizando...</span></div>
+
+    <!-- SCRIPTS -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="data/registros.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Cargar logo dinámicamente
+        fetch('assets/logo.txt')
+            .then(r => r.text())
+            .then(logo => {
+                const src = 'data:image/png;base64,' + logo.trim();
+                document.getElementById('loginLogo').src = src;
+                document.getElementById('headerLogo').src = src;
+                document.getElementById('docLogo').src = src;
+            })
+            .catch(() => console.log('Logo no encontrado'));
+    </script>
+</body>
+</html>
